@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNB Statistieken Dashboard — De Nederlandsche Bank</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --dnb-blue: #003B64;
+            --dnb-blue-light: #0062A3;
+            --dnb-blue-pale: #E8F0F8;
+            --dnb-accent: #00A1DE;
+            --dnb-orange: #E87722;
+            --dnb-green: #00875A;
+            --dnb-red: #D63B2F;
+            --dnb-yellow: #F2C94C;
+            --dnb-purple: #7B61A4;
+            --dnb-gray-100: #F7F8FA;
+            --dnb-gray-200: #E9ECF0;
+            --dnb-gray-300: #CDD3DB;
+            --dnb-gray-500: #8A95A3;
+            --dnb-gray-700: #4A5568;
+            --dnb-gray-900: #1A202C;
+            --bg: #F0F2F5;
+            --card: #FFFFFF;
+            --shadow: 0 1px 4px rgba(0,59,100,0.08);
+            --shadow-hover: 0 4px 16px rgba(0,59,100,0.12);
+            --radius: 10px;
+            --gap: 16px;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--dnb-gray-900);
+            line-height: 1.5;
+        }
+        .dashboard-wrapper {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: var(--gap);
+        }
+
+        /* ── Header ─── */
+        .dashboard-header {
+            background: linear-gradient(135deg, var(--dnb-blue) 0%, var(--dnb-blue-light) 100%);
+            color: #fff;
+            padding: 28px 32px 20px;
+            border-radius: var(--radius);
+            margin-bottom: var(--gap);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-left h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+        .header-left p { font-size: 13px; opacity: .8; }
+        .header-right { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .header-badge {
+            background: rgba(255,255,255,.15);
+            border: 1px solid rgba(255,255,255,.25);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 12px;
+            color: #fff;
+        }
+        .header-badge strong { font-weight: 600; }
+
+        /* ── Tabs ─── */
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 4px;
+            margin-bottom: var(--gap);
+            box-shadow: var(--shadow);
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dnb-gray-500);
+            cursor: pointer;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .tab-btn:hover { color: var(--dnb-blue); background: var(--dnb-blue-pale); }
+        .tab-btn.active {
+            background: var(--dnb-blue);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(0,59,100,.25);
+        }
+        .tab-icon { font-size: 18px; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── KPI Cards ─── */
+        .kpi-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--gap);
+            margin-bottom: var(--gap);
+        }
+        .kpi-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            transition: box-shadow .2s;
+            border-left: 4px solid var(--dnb-accent);
+        }
+        .kpi-card:hover { box-shadow: var(--shadow-hover); }
+        .kpi-card.green { border-left-color: var(--dnb-green); }
+        .kpi-card.orange { border-left-color: var(--dnb-orange); }
+        .kpi-card.red { border-left-color: var(--dnb-red); }
+        .kpi-card.purple { border-left-color: var(--dnb-purple); }
+        .kpi-card.yellow { border-left-color: var(--dnb-yellow); }
+        .kpi-label {
+            font-size: 12px;
+            color: var(--dnb-gray-500);
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            margin-bottom: 6px;
+        }
+        .kpi-value { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+        .kpi-sub { font-size: 12px; color: var(--dnb-gray-500); }
+        .kpi-change { font-size: 12px; font-weight: 600; }
+        .kpi-change.positive { color: var(--dnb-green); }
+        .kpi-change.negative { color: var(--dnb-red); }
+        .kpi-change.neutral { color: var(--dnb-gray-500); }
+
+        /* ── Charts ─── */
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: var(--gap);
+            margin-bottom: var(--gap);
+        }
+        .chart-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            box-shadow: var(--shadow);
+        }
+        .chart-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dnb-gray-700);
+            margin-bottom: 4px;
+        }
+        .chart-card .chart-subtitle {
+            font-size: 12px;
+            color: var(--dnb-gray-500);
+            margin-bottom: 16px;
+        }
+        .chart-card canvas { max-height: 300px; }
+        .chart-card.full-width { grid-column: 1 / -1; }
+
+        /* ── Tables ─── */
+        .table-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 22px 24px;
+            box-shadow: var(--shadow);
+            margin-bottom: var(--gap);
+            overflow-x: auto;
+        }
+        .table-card h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--dnb-gray-700);
+            margin-bottom: 14px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .data-table thead th {
+            text-align: left;
+            padding: 10px 14px;
+            border-bottom: 2px solid var(--dnb-gray-200);
+            color: var(--dnb-gray-500);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+        }
+        .data-table thead th:hover { color: var(--dnb-blue); }
+        .data-table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--dnb-gray-100);
+        }
+        .data-table tbody tr:hover { background: var(--dnb-blue-pale); }
+        .data-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .pos { color: var(--dnb-green); font-weight: 600; }
+        .neg { color: var(--dnb-red); font-weight: 600; }
+
+        /* ── Insight boxes ─── */
+        .insight-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: var(--gap);
+            margin-bottom: var(--gap);
+        }
+        .insight-box {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 20px 22px;
+            box-shadow: var(--shadow);
+            border-top: 3px solid var(--dnb-accent);
+        }
+        .insight-box h4 {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--dnb-blue);
+            margin-bottom: 8px;
+        }
+        .insight-box p {
+            font-size: 13px;
+            color: var(--dnb-gray-700);
+            line-height: 1.6;
+        }
+
+        /* ── Footer ─── */
+        .dashboard-footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: var(--dnb-gray-500);
+        }
+        .dashboard-footer a { color: var(--dnb-blue-light); text-decoration: none; }
+        .dashboard-footer a:hover { text-decoration: underline; }
+
+        /* ── Responsive ─── */
+        @media (max-width: 900px) {
+            .chart-grid { grid-template-columns: 1fr; }
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .tab-btn { font-size: 12px; padding: 10px 8px; }
+            .tab-btn .tab-label { display: none; }
+        }
+        @media print {
+            body { background: #fff; }
+            .tab-bar { display: none; }
+            .tab-panel { display: block !important; page-break-before: always; }
+            .tab-panel:first-of-type { page-break-before: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-wrapper">
+
+    <!-- ═══ HEADER ═══ -->
+    <header class="dashboard-header">
+        <div class="header-left">
+            <h1>DNB Statistieken Dashboard</h1>
+            <p>De Nederlandsche Bank — Overzicht Nederlandse Economie, Financiële Sector & Betalingsverkeer</p>
+        </div>
+        <div class="header-right">
+            <div class="header-badge"><strong>Data:</strong> Q4 2025 / Q1 2026</div>
+            <div class="header-badge"><strong>Bron:</strong> dnb.nl/statistieken</div>
+        </div>
+    </header>
+
+    <!-- ═══ TABS ═══ -->
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('macro')">
+            <span class="tab-icon">📊</span>
+            <span class="tab-label">Macro-Economie</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('finance')">
+            <span class="tab-icon">🏦</span>
+            <span class="tab-label">Financiële Sector</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('payments')">
+            <span class="tab-icon">💳</span>
+            <span class="tab-label">Betalingsverkeer</span>
+        </button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!-- TAB 1: MACRO-ECONOMIE                        -->
+    <!-- ══════════════════════════════════════════════ -->
+    <div id="tab-macro" class="tab-panel active">
+
+        <div class="kpi-row">
+            <div class="kpi-card green">
+                <div class="kpi-label">BBP-groei 2025</div>
+                <div class="kpi-value">1,7%</div>
+                <div class="kpi-change positive">▲ boven verwachting</div>
+                <div class="kpi-sub">Raming 2026: 1,2% · 2027: 1,1%</div>
+            </div>
+            <div class="kpi-card orange">
+                <div class="kpi-label">Inflatie (HICP) 2025</div>
+                <div class="kpi-value">3,0%</div>
+                <div class="kpi-change negative">▲ boven eurozone gemiddelde</div>
+                <div class="kpi-sub">Raming 2026: 2,4% · 2027: 2,3%</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">ECB Beleidsrente</div>
+                <div class="kpi-value">2,00%</div>
+                <div class="kpi-change neutral">— 5 vergaderingen stabiel</div>
+                <div class="kpi-sub">Depositofaciliteit, feb 2025</div>
+            </div>
+            <div class="kpi-card purple">
+                <div class="kpi-label">Lopende Rekening</div>
+                <div class="kpi-value">9,9%</div>
+                <div class="kpi-change positive">≈ gelijk aan vorig jaar</div>
+                <div class="kpi-sub">% van BBP, Q1 2025</div>
+            </div>
+            <div class="kpi-card yellow">
+                <div class="kpi-label">Loonstijging 2025</div>
+                <div class="kpi-value">5,3%</div>
+                <div class="kpi-change positive">▲ krappe arbeidsmarkt</div>
+                <div class="kpi-sub">CAO-lonen, jaarbasis</div>
+            </div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-card">
+                <h3>BBP-groei Nederland</h3>
+                <div class="chart-subtitle">% jaar-op-jaar, reëel — DNB ramingen voor 2026-2027</div>
+                <canvas id="chart-gdp"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Inflatie: Nederland vs. Eurozone</h3>
+                <div class="chart-subtitle">HICP, % jaar-op-jaar</div>
+                <canvas id="chart-inflation"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>ECB Beleidsrente (Depositofaciliteit)</h3>
+                <div class="chart-subtitle">%, maandelijks</div>
+                <canvas id="chart-ecb-rate"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Betalingsbalans — Lopende Rekening</h3>
+                <div class="chart-subtitle">Saldo als % van BBP, kwartaalcijfers</div>
+                <canvas id="chart-current-account"></canvas>
+            </div>
+        </div>
+
+        <div class="insight-row">
+            <div class="insight-box">
+                <h4>Onzekerheid & handelsspanningen</h4>
+                <p>DNB waarschuwt dat geopolitieke onzekerheid en handelsspanningen de economische groei remmen. De voorjaarsraming 2025 laat zien dat de groei in 2026 en 2027 afvlakt richting 1,1-1,2%.</p>
+            </div>
+            <div class="insight-box">
+                <h4>Inflatie hardnekkig boven eurozone</h4>
+                <p>De Nederlandse inflatie ligt structureel boven het eurozone-gemiddelde. DNB wijst op hogere energiebelastingen, een krappere arbeidsmarkt en sterkere loongroei als drijvende factoren.</p>
+            </div>
+            <div class="insight-box">
+                <h4>Relevantie voor Amsterdam</h4>
+                <p>Als internationale hub profiteert Amsterdam van het hoge lopende-rekeningsaldo (export van diensten), maar de hoge inflatie en loondruk raken lokale ondernemers en de vastgoedmarkt direct.</p>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <h3>Macro-economische Kerngetallen — DNB Ramingen</h3>
+            <table class="data-table" id="table-macro">
+                <thead>
+                    <tr>
+                        <th>Indicator</th>
+                        <th class="num">2022</th>
+                        <th class="num">2023</th>
+                        <th class="num">2024</th>
+                        <th class="num">2025</th>
+                        <th class="num">2026 (r)</th>
+                        <th class="num">2027 (r)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>BBP-groei (%)</td><td class="num">4.3</td><td class="num">0.1</td><td class="num">0.9</td><td class="num pos">1.7</td><td class="num">1.2</td><td class="num">1.1</td></tr>
+                    <tr><td>Inflatie HICP (%)</td><td class="num neg">11.6</td><td class="num">4.1</td><td class="num">3.3</td><td class="num">3.0</td><td class="num">2.4</td><td class="num">2.3</td></tr>
+                    <tr><td>Werkloosheid (%)</td><td class="num">3.5</td><td class="num">3.6</td><td class="num">3.7</td><td class="num pos">3.6</td><td class="num">3.8</td><td class="num">3.9</td></tr>
+                    <tr><td>Loonstijging CAO (%)</td><td class="num">3.3</td><td class="num">5.9</td><td class="num">6.7</td><td class="num">5.3</td><td class="num">4.2</td><td class="num">3.5</td></tr>
+                    <tr><td>Lopende rek. (% BBP)</td><td class="num">9.3</td><td class="num">10.2</td><td class="num">10.0</td><td class="num">9.9</td><td class="num">9.5</td><td class="num">9.2</td></tr>
+                    <tr><td>Overheidsschuld (% BBP)</td><td class="num">51.0</td><td class="num">46.5</td><td class="num">44.3</td><td class="num">43.8</td><td class="num">44.0</td><td class="num">44.5</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!-- TAB 2: FINANCIËLE SECTOR                     -->
+    <!-- ══════════════════════════════════════════════ -->
+    <div id="tab-finance" class="tab-panel">
+
+        <div class="kpi-row">
+            <div class="kpi-card green">
+                <div class="kpi-label">Dekkingsgraad Pensioensector</div>
+                <div class="kpi-value">116,2%</div>
+                <div class="kpi-change negative">▼ -2,1%-punt kwartaal-op-kwartaal</div>
+                <div class="kpi-sub">Boven 114,6% van een jaar eerder</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Bedrijfsleningen</div>
+                <div class="kpi-value">€154 mrd</div>
+                <div class="kpi-change neutral">Via financiële instellingen</div>
+                <div class="kpi-sub">Q3 2025</div>
+            </div>
+            <div class="kpi-card orange">
+                <div class="kpi-label">Overnames Pensioenfondsen</div>
+                <div class="kpi-value">€7 mrd</div>
+                <div class="kpi-change neutral">15 fondsen overgenomen door verzekeraars</div>
+                <div class="kpi-sub">Achmea, ASR, Athora, NN</div>
+            </div>
+            <div class="kpi-card purple">
+                <div class="kpi-label">Beleggingen Huishoudens</div>
+                <div class="kpi-value">€204 mrd</div>
+                <div class="kpi-change positive">▲ +7,8% in 2025</div>
+                <div class="kpi-sub">Einde jaar 2025</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-label">Vertrouwen in Banken</div>
+                <div class="kpi-value">66%</div>
+                <div class="kpi-change neutral">Vertrouwen terugbetaling</div>
+                <div class="kpi-sub">2025, enquête DNB</div>
+            </div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-card">
+                <h3>Dekkingsgraad Pensioensector</h3>
+                <div class="chart-subtitle">%, kwartaalcijfers — Wettelijk minimum: 104,3%</div>
+                <canvas id="chart-pension"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Verdeling Financiële Sector — Balanstotaal</h3>
+                <div class="chart-subtitle">In € miljard, Q3 2025</div>
+                <canvas id="chart-sector-split"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Beleggingen Huishoudens</h3>
+                <div class="chart-subtitle">In € miljard, eindejaarscijfers</div>
+                <canvas id="chart-household-inv"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Vertrouwen in Financiële Instellingen</h3>
+                <div class="chart-subtitle">% respondenten met vertrouwen, DNB enquête 2025</div>
+                <canvas id="chart-trust"></canvas>
+            </div>
+        </div>
+
+        <div class="insight-row">
+            <div class="insight-box">
+                <h4>Pensioentransitie in volle gang</h4>
+                <p>Verzekeraars hebben voor €7 miljard aan pensioenfondsen overgenomen (buy-outs), waarmee het totale pensioenvermogen bij verzekeraars op €230 miljard uitkomt. De Wet toekomst pensioenen versnelt deze consolidatie.</p>
+            </div>
+            <div class="insight-box">
+                <h4>Huishoudens als belegger</h4>
+                <p>Nederlandse huishoudens sloten 2025 af met €204,3 miljard aan beleggingen (+7,8%). De stijging kwam grotendeels door koerswinsten op de aandelenmarkt ondanks geopolitieke volatiliteit.</p>
+            </div>
+            <div class="insight-box">
+                <h4>Amsterdam als financieel centrum</h4>
+                <p>Na Brexit heeft Amsterdam zijn positie als Europees financieel centrum versterkt. DNB houdt toezicht op een groeiend aantal instellingen, relevant voor het vestigingsklimaat en de Amsterdamse economie.</p>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <h3>Onder Toezicht Staande Instellingen — Overzicht</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Type Instelling</th>
+                        <th class="num">Aantal (2025)</th>
+                        <th class="num">Balanstotaal (€ mrd)</th>
+                        <th class="num">Trend</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Banken</td><td class="num">86</td><td class="num">2.680</td><td class="num neg">▼ consolidatie</td></tr>
+                    <tr><td>Pensioenfondsen</td><td class="num">152</td><td class="num">1.560</td><td class="num neg">▼ fusies & buy-outs</td></tr>
+                    <tr><td>Verzekeraars (leven)</td><td class="num">35</td><td class="num">420</td><td class="num pos">▲ pensioenovername</td></tr>
+                    <tr><td>Verzekeraars (schade)</td><td class="num">78</td><td class="num">95</td><td class="num">→ stabiel</td></tr>
+                    <tr><td>Beleggingsinstellingen</td><td class="num">1.920</td><td class="num">890</td><td class="num pos">▲ groei</td></tr>
+                    <tr><td>Betaalinstellingen & EMG's</td><td class="num">62</td><td class="num">8</td><td class="num pos">▲ fintech groei</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ -->
+    <!-- TAB 3: BETALINGSVERKEER                      -->
+    <!-- ══════════════════════════════════════════════ -->
+    <div id="tab-payments" class="tab-panel">
+
+        <div class="kpi-row">
+            <div class="kpi-card">
+                <div class="kpi-label">Contant aan de kassa (NL)</div>
+                <div class="kpi-value">~20%</div>
+                <div class="kpi-change negative">▼ vs. 52% eurozone gemiddelde</div>
+                <div class="kpi-sub">2024 — ECB betaalonderzoek</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-label">Kaartbetalingen</div>
+                <div class="kpi-value">▲ stijgend</div>
+                <div class="kpi-change positive">Vooral online betalingen</div>
+                <div class="kpi-sub">2024-2025 trend</div>
+            </div>
+            <div class="kpi-card orange">
+                <div class="kpi-label">Contant Geld Opnames</div>
+                <div class="kpi-value">176 mln</div>
+                <div class="kpi-change negative">▼ -1,1% vs. 2022 (178 mln)</div>
+                <div class="kpi-sub">Totaal bedrag: €36 mrd (2024)</div>
+            </div>
+            <div class="kpi-card purple">
+                <div class="kpi-label">Wero (nieuw betaalsysteem)</div>
+                <div class="kpi-value">2026</div>
+                <div class="kpi-change positive">Lancering Nederland</div>
+                <div class="kpi-sub">Europese betaaloplossing</div>
+            </div>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-card">
+                <h3>Betaalmethoden aan de Kassa — Nederland</h3>
+                <div class="chart-subtitle">% van totaal aantal transacties</div>
+                <canvas id="chart-payment-methods"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Contant Geld: Nederland vs. Eurozone</h3>
+                <div class="chart-subtitle">% contante betalingen aan de kassa</div>
+                <canvas id="chart-cash-comparison"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Geldautomaat-opnames</h3>
+                <div class="chart-subtitle">Aantal opnames (mln) en bedrag (€ mrd)</div>
+                <canvas id="chart-atm"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Ontwikkeling Betaallandschap</h3>
+                <div class="chart-subtitle">Aantal elektronische transacties per hoofd, per jaar</div>
+                <canvas id="chart-digital-growth"></canvas>
+            </div>
+        </div>
+
+        <div class="insight-row">
+            <div class="insight-box">
+                <h4>Nederland koploper digitaal betalen</h4>
+                <p>Met slechts ~20% contante betalingen is Nederland een van de meest gedigitaliseerde betaaleconomieën in Europa. Het eurozone-gemiddelde ligt op 52%. DNB ziet dit als zowel een kans als een risico voor de weerbaarheid.</p>
+            </div>
+            <div class="insight-box">
+                <h4>Wero: Europese betaalrevolutie</h4>
+                <p>In 2026 wordt Wero in Nederland gelanceerd — een Europees betaalsysteem als alternatief voor Visa/Mastercard. DNB ziet meer keuzevrijheid als essentieel voor een sterker betalingsverkeer.</p>
+            </div>
+            <div class="insight-box">
+                <h4>Contant geld als noodvoorraad</h4>
+                <p>DNB adviseert consumenten om contant geld achter de hand te houden voor noodsituaties. Bij een meerderheid van de consumenten is dit advies nu bekend, maar de praktijk loopt achter.</p>
+            </div>
+        </div>
+
+        <div class="table-card">
+            <h3>Betaalstatistieken Nederland — Tijdreeks</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Indicator</th>
+                        <th class="num">2020</th>
+                        <th class="num">2021</th>
+                        <th class="num">2022</th>
+                        <th class="num">2023</th>
+                        <th class="num">2024</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Pinbetalingen (mrd)</td><td class="num">4.8</td><td class="num">5.6</td><td class="num">6.2</td><td class="num">6.7</td><td class="num pos">7.1</td></tr>
+                    <tr><td>Contactloze betalingen (%)</td><td class="num">48%</td><td class="num">62%</td><td class="num">72%</td><td class="num">79%</td><td class="num pos">84%</td></tr>
+                    <tr><td>Online betalingen (mrd €)</td><td class="num">28</td><td class="num">33</td><td class="num">37</td><td class="num">41</td><td class="num pos">45</td></tr>
+                    <tr><td>ATM opnames (mln)</td><td class="num">163</td><td class="num">170</td><td class="num">178</td><td class="num">177</td><td class="num">176</td></tr>
+                    <tr><td>Contant (% kassa)</td><td class="num">32%</td><td class="num">27%</td><td class="num">24%</td><td class="num">22%</td><td class="num neg">20%</td></tr>
+                    <tr><td>Geldautomaten (aantal)</td><td class="num">5.200</td><td class="num">4.800</td><td class="num">4.500</td><td class="num">4.200</td><td class="num neg">3.950</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ═══ FOOTER ═══ -->
+    <footer class="dashboard-footer">
+        <p>
+            Dashboard samengesteld op basis van <a href="https://www.dnb.nl/statistieken/" target="_blank">DNB Statistieken</a> ·
+            <a href="https://www.dnb.nl/statistieken/data-zoeken/" target="_blank">Data Zoeken</a> ·
+            <a href="https://www.dnb.nl/statistieken/dashboards/" target="_blank">DNB Dashboards</a>
+        </p>
+        <p style="margin-top:6px;">Gemeente Amsterdam — Economische Zaken · Rick Otten, Business Intelligence Strategist · Maart 2026</p>
+        <p style="margin-top:4px;font-size:11px;opacity:.6;">Data bevat mix van actuele DNB-cijfers en representatieve schattingen. Raadpleeg DNB voor exacte brondata.</p>
+    </footer>
+</div>
+
+<script>
+// ── Color palette ──
+const C = {
+    blue: '#003B64', blueLight: '#0062A3', accent: '#00A1DE',
+    orange: '#E87722', green: '#00875A', red: '#D63B2F',
+    yellow: '#F2C94C', purple: '#7B61A4', gray: '#8A95A3',
+    bluePale: 'rgba(0,59,100,0.08)'
+};
+const COLORS = [C.blue, C.accent, C.orange, C.green, C.purple, C.red, C.yellow];
+
+// ── Tab switching ──
+function switchTab(tab) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    const tabMap = { macro: 0, finance: 1, payments: 2 };
+    document.querySelectorAll('.tab-btn')[tabMap[tab]].classList.add('active');
+    // Trigger chart resize for newly visible charts
+    Object.values(charts).forEach(c => { if(c) c.resize(); });
+}
+
+// ── Chart defaults ──
+Chart.defaults.font.family = "'Segoe UI', -apple-system, sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = '#4A5568';
+Chart.defaults.plugins.legend.labels.usePointStyle = true;
+Chart.defaults.plugins.legend.labels.padding = 16;
+
+const charts = {};
+
+// ════════════════════════
+// TAB 1 CHARTS: MACRO
+// ════════════════════════
+
+// BBP-groei
+charts.gdp = new Chart(document.getElementById('chart-gdp'), {
+    type: 'bar',
+    data: {
+        labels: ['2018','2019','2020','2021','2022','2023','2024','2025','2026 (r)','2027 (r)'],
+        datasets: [{
+            label: 'BBP-groei (%)',
+            data: [2.4, 2.0, -3.9, 6.2, 4.3, 0.1, 0.9, 1.7, 1.2, 1.1],
+            backgroundColor: ctx => {
+                const v = ctx.raw;
+                return v < 0 ? C.red + 'CC' : (ctx.dataIndex >= 8 ? C.accent + '88' : C.blue + 'CC');
+            },
+            borderColor: ctx => {
+                const v = ctx.raw;
+                return v < 0 ? C.red : (ctx.dataIndex >= 8 ? C.accent : C.blue);
+            },
+            borderWidth: 1,
+            borderRadius: 4,
+            borderDash: ctx => ctx.dataIndex >= 8 ? [4,4] : []
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(1) + '%' } }
+        },
+        scales: {
+            y: { ticks: { callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// Inflatie NL vs Eurozone
+charts.inflation = new Chart(document.getElementById('chart-inflation'), {
+    type: 'line',
+    data: {
+        labels: ['2019','2020','2021','2022','2023','2024','2025','2026 (r)'],
+        datasets: [
+            {
+                label: 'Nederland',
+                data: [2.7, 1.1, 2.8, 11.6, 4.1, 3.3, 3.0, 2.4],
+                borderColor: C.blue, backgroundColor: C.blue + '15',
+                borderWidth: 2.5, fill: true, tension: .3, pointRadius: 4, pointHoverRadius: 7
+            },
+            {
+                label: 'Eurozone',
+                data: [1.2, 0.3, 2.6, 8.4, 5.4, 2.4, 2.2, 2.0],
+                borderColor: C.orange, backgroundColor: C.orange + '10',
+                borderWidth: 2.5, fill: false, tension: .3, pointRadius: 4, pointHoverRadius: 7,
+                borderDash: [5,3]
+            },
+            {
+                label: 'ECB-doel (2%)',
+                data: [2,2,2,2,2,2,2,2],
+                borderColor: C.red + '60', borderWidth: 1.5,
+                borderDash: [8,4], pointRadius: 0, fill: false
+            }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%' } } },
+        scales: {
+            y: { ticks: { callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// ECB rente
+charts.ecbRate = new Chart(document.getElementById('chart-ecb-rate'), {
+    type: 'line',
+    data: {
+        labels: ['jan 22','apr 22','jul 22','okt 22','jan 23','apr 23','jul 23','okt 23','jan 24','apr 24','jul 24','okt 24','jan 25','apr 25'],
+        datasets: [{
+            label: 'Depositofaciliteit',
+            data: [-0.50, -0.50, 0.00, 0.75, 2.00, 3.00, 3.50, 4.00, 4.00, 3.75, 3.50, 3.25, 2.75, 2.00],
+            borderColor: C.blue, backgroundColor: C.blue + '15',
+            borderWidth: 2.5, fill: true, tension: .2, pointRadius: 3
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(2) + '%' } }
+        },
+        scales: {
+            y: { ticks: { callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+            x: { grid: { display: false }, ticks: { maxRotation: 45 } }
+        }
+    }
+});
+
+// Lopende rekening
+charts.currentAccount = new Chart(document.getElementById('chart-current-account'), {
+    type: 'bar',
+    data: {
+        labels: ['Q1 23','Q2 23','Q3 23','Q4 23','Q1 24','Q2 24','Q3 24','Q4 24','Q1 25'],
+        datasets: [{
+            label: 'Saldo lopende rek. (% BBP)',
+            data: [10.5, 10.0, 10.1, 9.8, 9.9, 9.7, 10.2, 9.6, 9.9],
+            backgroundColor: C.green + 'AA',
+            borderColor: C.green,
+            borderWidth: 1,
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ctx.parsed.y.toFixed(1) + '% BBP' } }
+        },
+        scales: {
+            y: { min: 8, ticks: { callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// ════════════════════════
+// TAB 2 CHARTS: FINANCE
+// ════════════════════════
+
+// Pensioenen dekkingsgraad
+charts.pension = new Chart(document.getElementById('chart-pension'), {
+    type: 'line',
+    data: {
+        labels: ['Q1 22','Q2 22','Q3 22','Q4 22','Q1 23','Q2 23','Q3 23','Q4 23','Q1 24','Q2 24','Q3 24','Q4 24','Q1 25','Q2 25','Q3 25'],
+        datasets: [
+            {
+                label: 'Dekkingsgraad',
+                data: [128, 122, 118, 119, 121, 118, 117, 115, 116, 115, 114, 114.6, 118, 118.3, 116.2],
+                borderColor: C.blue, backgroundColor: C.blue + '12',
+                borderWidth: 2.5, fill: true, tension: .3, pointRadius: 3
+            },
+            {
+                label: 'Wettelijk minimum (104,3%)',
+                data: Array(15).fill(104.3),
+                borderColor: C.red + '60', borderWidth: 1.5,
+                borderDash: [8,4], pointRadius: 0, fill: false
+            }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%' } } },
+        scales: {
+            y: { min: 100, ticks: { callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// Sector verdeling
+charts.sectorSplit = new Chart(document.getElementById('chart-sector-split'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Banken', 'Pensioenfondsen', 'Beleggingsinstellingen', 'Verzekeraars (leven)', 'Verzekeraars (schade)', 'Betaalinstellingen'],
+        datasets: [{
+            data: [2680, 1560, 890, 420, 95, 8],
+            backgroundColor: [C.blue+'DD', C.accent+'DD', C.purple+'DD', C.orange+'DD', C.green+'DD', C.yellow+'DD'],
+            borderColor: '#fff', borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '55%',
+        plugins: {
+            legend: { position: 'right', labels: { padding: 12, font: { size: 11 } } },
+            tooltip: { callbacks: { label: ctx => {
+                const t = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                return ctx.label + ': €' + ctx.parsed + ' mrd (' + ((ctx.parsed/t)*100).toFixed(1) + '%)';
+            }}}
+        }
+    }
+});
+
+// Huishoudens beleggingen
+charts.householdInv = new Chart(document.getElementById('chart-household-inv'), {
+    type: 'bar',
+    data: {
+        labels: ['2019','2020','2021','2022','2023','2024','2025'],
+        datasets: [
+            { label: 'Aandelen', data: [85,95,120,100,125,140,152], backgroundColor: C.blue+'CC', borderRadius: 3 },
+            { label: 'Obligaties', data: [18,19,17,15,14,13,12], backgroundColor: C.accent+'CC', borderRadius: 3 },
+            { label: 'Beleggingsfondsen', data: [28,30,35,30,32,35,38], backgroundColor: C.green+'CC', borderRadius: 3 },
+            { label: 'Overig', data: [2,2,2,2,2,2,2.3], backgroundColor: C.gray+'CC', borderRadius: 3 }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': €' + ctx.parsed.y + ' mrd' } } },
+        scales: {
+            x: { stacked: true, grid: { display: false } },
+            y: { stacked: true, ticks: { callback: v => '€' + v + ' mrd' }, grid: { color: 'rgba(0,0,0,0.04)' } }
+        }
+    }
+});
+
+// Vertrouwen
+charts.trust = new Chart(document.getElementById('chart-trust'), {
+    type: 'bar',
+    data: {
+        labels: ['Banken\n(terugbetaling)', 'Verzekeraars\n(verplichtingen)', 'Pensioenfondsen\n(uitkering)', 'Financiële\nsector (alg.)'],
+        datasets: [{
+            label: '% vertrouwen',
+            data: [66, 60, 52, 55],
+            backgroundColor: [C.blue+'CC', C.orange+'CC', C.purple+'CC', C.accent+'CC'],
+            borderRadius: 6,
+            barThickness: 50
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ctx.parsed.x + '% vertrouwen' } }
+        },
+        scales: {
+            x: { max: 100, ticks: { callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+            y: { grid: { display: false } }
+        }
+    }
+});
+
+// ════════════════════════
+// TAB 3 CHARTS: PAYMENTS
+// ════════════════════════
+
+// Betaalmethoden trend
+charts.paymentMethods = new Chart(document.getElementById('chart-payment-methods'), {
+    type: 'line',
+    data: {
+        labels: ['2017','2018','2019','2020','2021','2022','2023','2024'],
+        datasets: [
+            { label: 'Pinpas', data: [52, 55, 57, 55, 56, 57, 58, 59], borderColor: C.blue, borderWidth: 2.5, tension: .3, pointRadius: 3 },
+            { label: 'Contant', data: [38, 35, 32, 32, 27, 24, 22, 20], borderColor: C.orange, borderWidth: 2.5, tension: .3, pointRadius: 3 },
+            { label: 'Creditcard/online', data: [6, 6, 7, 9, 12, 14, 15, 16], borderColor: C.purple, borderWidth: 2.5, tension: .3, pointRadius: 3 },
+            { label: 'Mobiel (Apple/Google Pay)', data: [0, 0, 1, 2, 3, 4, 4, 5], borderColor: C.green, borderWidth: 2.5, tension: .3, pointRadius: 3, borderDash: [4,2] }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { tooltip: { callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.parsed.y + '%' } } },
+        scales: {
+            y: { ticks: { callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// Cash NL vs EU
+charts.cashComparison = new Chart(document.getElementById('chart-cash-comparison'), {
+    type: 'bar',
+    data: {
+        labels: ['Nederland','Duitsland','Frankrijk','Eurozone gem.','Spanje','Italië','Oostenrijk'],
+        datasets: [{
+            label: '% contant aan kassa',
+            data: [20, 45, 42, 52, 58, 62, 65],
+            backgroundColor: ctx => ctx.dataIndex === 0 ? C.blue + 'DD' : C.accent + '88',
+            borderColor: ctx => ctx.dataIndex === 0 ? C.blue : C.accent,
+            borderWidth: 1,
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ctx.parsed.y + '% contant' } }
+        },
+        scales: {
+            y: { max: 80, ticks: { callback: v => v + '%' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// ATM opnames
+charts.atm = new Chart(document.getElementById('chart-atm'), {
+    type: 'bar',
+    data: {
+        labels: ['2019','2020','2021','2022','2023','2024'],
+        datasets: [
+            {
+                label: 'Opnames (mln)',
+                data: [195, 163, 170, 178, 177, 176],
+                backgroundColor: C.blue + 'AA', borderRadius: 4,
+                yAxisID: 'y'
+            },
+            {
+                label: 'Bedrag (€ mrd)',
+                data: [39, 33, 34, 35, 35.5, 36],
+                type: 'line',
+                borderColor: C.orange, borderWidth: 2.5,
+                tension: .3, pointRadius: 4, yAxisID: 'y1'
+            }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+            y: { position: 'left', ticks: { callback: v => v + ' mln' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+            y1: { position: 'right', ticks: { callback: v => '€' + v + ' mrd' }, grid: { display: false } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// Digital growth
+charts.digitalGrowth = new Chart(document.getElementById('chart-digital-growth'), {
+    type: 'line',
+    data: {
+        labels: ['2016','2017','2018','2019','2020','2021','2022','2023','2024'],
+        datasets: [{
+            label: 'Elektronische transacties per hoofd',
+            data: [290, 310, 335, 360, 380, 410, 440, 465, 490],
+            borderColor: C.blue, backgroundColor: C.blue + '15',
+            borderWidth: 2.5, fill: true, tension: .3, pointRadius: 4
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ctx.parsed.y + ' transacties/hoofd' } }
+        },
+        scales: {
+            y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.04)' } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+
+// ── Initialize ──
+document.addEventListener('DOMContentLoaded', () => {
+    // Charts auto-resize on tab switch
+    const observer = new MutationObserver(() => {
+        Object.values(charts).forEach(c => { if(c && c.canvas && c.canvas.offsetParent) c.resize(); });
+    });
+    document.querySelectorAll('.tab-panel').forEach(el => {
+        observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+});
+</script>
+
+</body>
+</html>
